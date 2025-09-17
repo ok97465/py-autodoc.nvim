@@ -3,6 +3,10 @@
 ## Overview
 `py-autodoc.nvim` is a Neovim plugin designed to streamline Python development by automatically generating docstrings for your functions and methods. It supports various docstring formats, including NumPy, Google, and Sphinx, helping you maintain consistent and well-documented Python code effortlessly.
 
+## Demo
+
+![demo gif](https://github.com/ok97465/py-autodoc.nvim/raw/main/doc/demo.gif)
+
 ## Features
 - Automatic docstring generation for Python functions and methods.
 - Supports NumPy, Google, and Sphinx docstring formats.
