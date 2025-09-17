@@ -390,4 +390,65 @@ def foo(arg1: int) -> int:
         end)
     end
 
+    local numpydoc_cases = {
+        {
+            description = "includes type hints by default",
+            input = [=[def foo(arg1: int, arg2: str) -> int:
+    return arg1
+]=],
+            generator_opts = { include_type_hints = true },
+            expected_lines = {
+                "def foo(arg1: int, arg2: str) -> int:",
+                "    \"\"\"Summary of the function.",
+                "    ",
+                "    Parameters",
+                "    ----------",
+                "    arg1 : int",
+                "        DESCRIPTION.",
+                "    arg2 : str",
+                "        DESCRIPTION.",
+                "    ",
+                "    Returns",
+                "    -------",
+                "    int",
+                "        DESCRIPTION.",
+                "    \"\"\"",
+                "    return arg1",
+            },
+        },
+        {
+            description = "omits type hints when disabled",
+            input = [=[def foo(arg1: int, arg2: str) -> int:
+    return arg1
+]=],
+            generator_opts = { include_type_hints = false },
+            expected_lines = {
+                "def foo(arg1: int, arg2: str) -> int:",
+                "    \"\"\"Summary of the function.",
+                "    ",
+                "    Parameters",
+                "    ----------",
+                "    arg1",
+                "        DESCRIPTION.",
+                "    arg2",
+                "        DESCRIPTION.",
+                "    ",
+                "    Returns",
+                "    -------",
+                "        DESCRIPTION.",
+                "    \"\"\"",
+                "    return arg1",
+            },
+        },
+    }
+
+    for _, case in ipairs(numpydoc_cases) do
+        it("Numpydoc " .. case.description, function()
+            local result, err = run_e2e_test(case.input, "Numpydoc", case.cursor_line, case.generator_opts)
+            assert.is_nil(err)
+            local result_lines = vim.split(result, "\n")
+            assert.are.same(case.expected_lines, result_lines)
+        end)
+    end
+
 end)

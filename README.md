@@ -43,7 +43,7 @@ You can configure `py-autodoc.nvim` by passing options to the `setup()` function
 
 | Option      | Type     | Default     | Description                                     |
 |-------------|----------|-------------|-------------------------------------------------|
-| `doc_style` | `string` | `'googledoc'` | The docstring style to use (`'googledoc'`). |
+| `doc_style` | `string` | `'Googledoc'` | Docstring style (`'Numpydoc'`, `'Googledoc'`, `'Sphinxdoc'`*). |
 | `indent_chars` | `string` | `'    '` | Characters used for indentation within the docstring. |
 | `include_type_hints` | `boolean` | `true` | Include type hints from the signature in the generated docstring. |
 
@@ -51,8 +51,10 @@ Example `setup` with custom options:
 
 ```lua
 require('py-autodoc').setup({
-  doc_style = 'googledoc',
+  doc_style = 'Numpydoc',
   indent_chars = '  ',
   include_type_hints = false,
 })
+
+*`Sphinxdoc` support is planned for a future release.
 ```

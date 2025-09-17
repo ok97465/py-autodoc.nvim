@@ -15,6 +15,30 @@ local function get_args_for_doc(func_args)
     return args_copy
 end
 
+local function format_argument_for_numpydoc(arg, include_type_hints)
+    local indent_desc = "    "
+    local arg_type = arg.arg_type or "TYPE"
+    local header
+    if include_type_hints then
+        header = ("%s : %s"):format(arg.name, arg_type)
+        if arg.default_value then
+            header = header .. ", optional"
+        end
+    else
+        header = arg.name
+        if arg.default_value then
+            header = header .. " (optional)"
+        end
+    end
+
+    local description = indent_desc .. "DESCRIPTION."
+    if arg.default_value then
+        description = description .. " Defaults to " .. arg.default_value .. "."
+    end
+
+    return header, description
+end
+
 function M.generate_googledoc(func_info, body_info, include_type_hints)
     local lines = {}
     local indent2 = "    " -- Relative indentation
@@ -65,6 +89,58 @@ function M.generate_googledoc(func_info, body_info, include_type_hints)
         table.insert(lines, indent2 .. "DESCRIPTION.")
     else
         table.insert(lines, indent2 .. "None.")
+    end
+
+    return lines
+end
+
+function M.generate_numpydoc(func_info, body_info, include_type_hints)
+    local lines = {}
+    local indent_desc = "    "
+
+    table.insert(lines, "Summary of the function.")
+    table.insert(lines, "")
+
+    local doc_args = get_args_for_doc(func_info.args)
+
+    if #doc_args > 0 then
+        table.insert(lines, "Parameters")
+        table.insert(lines, "----------")
+        for _, arg in ipairs(doc_args) do
+            local header, description = format_argument_for_numpydoc(arg, include_type_hints)
+            table.insert(lines, header)
+            table.insert(lines, description)
+        end
+    end
+
+    if body_info and #body_info.raises > 0 then
+        table.insert(lines, "")
+        table.insert(lines, "Raises")
+        table.insert(lines, "------")
+        for _, exception in ipairs(body_info.raises) do
+            table.insert(lines, exception)
+            table.insert(lines, indent_desc .. "DESCRIPTION.")
+        end
+    end
+
+    table.insert(lines, "")
+    local section_label = (body_info and body_info.has_yield) and "Yields" or "Returns"
+    table.insert(lines, section_label)
+    table.insert(lines, string.rep("-", #section_label))
+
+    if include_type_hints then
+        local return_type = func_info.return_type
+        if not return_type then
+            if body_info and body_info.has_yield then
+                return_type = "TYPE"
+            else
+                return_type = "None"
+            end
+        end
+        table.insert(lines, return_type)
+        table.insert(lines, indent_desc .. "DESCRIPTION.")
+    else
+        table.insert(lines, indent_desc .. "DESCRIPTION.")
     end
 
     return lines
