@@ -3,14 +3,43 @@
 -- Mock the vim global for testing outside of Neovim
 if not vim then
     _G.vim = {
-        split = function(s, sep)
-            if s == nil then return {} end
-            local fields = {}
-            local pattern = string.format("([^%s]+)", sep)
-            for c in string.gmatch(s, pattern) do
-                table.insert(fields, c)
+        split = function(s, sep, opts)
+            if s == nil then
+                return {}
             end
-            return fields
+
+            sep = sep or "\n"
+            opts = opts or {}
+
+            local plain = opts.plain
+            if plain == nil then
+                plain = false
+            end
+
+            local trimempty = opts.trimempty
+            if trimempty == nil then
+                trimempty = true
+            end
+
+            local result = {}
+            local start_idx = 1
+            local sep_start, sep_end = string.find(s, sep, start_idx, plain)
+
+            while sep_start do
+                local chunk = string.sub(s, start_idx, sep_start - 1)
+                if not (trimempty and chunk == "") then
+                    table.insert(result, chunk)
+                end
+                start_idx = sep_end + 1
+                sep_start, sep_end = string.find(s, sep, start_idx, plain)
+            end
+
+            local tail = string.sub(s, start_idx)
+            if not (trimempty and tail == "") then
+                table.insert(result, tail)
+            end
+
+            return result
         end,
     }
 end
@@ -62,7 +91,7 @@ describe("py-autodoc end-to-end tests", function()
 
         local docstring_body = generator.generate(doc_style, func_info, body_info, func_indent, "    ", generator_opts)
 
-        local docstring_lines = vim.split(docstring_body, "\n")
+        local docstring_lines = vim.split(docstring_body, "\n", { plain = true, trimempty = false })
 
         local insert_at = function_start + num_lines - 1
         local final_lines = {}
@@ -88,14 +117,16 @@ describe("py-autodoc end-to-end tests", function()
             expected_lines = {
                 "async def foo(arg1: int):",
                 "    \"\"\"",
+                "",
                 "    Args:",
                 "        arg1 (int): DESCRIPTION.",
-                "    ",
+                "",
                 "    Raises:",
-                    "        ValueError: DESCRIPTION.",
-                "    ",
+                "        ValueError: DESCRIPTION.",
+                "",
                 "    Returns:",
                 "        None.",
+                "",
                 "    \"\"\"",
                 "    raise ValueError(\"Test\")",
             },
@@ -111,13 +142,14 @@ describe("py-autodoc end-to-end tests", function()
             expected_lines = {
                 "async def foo():",
                 "    \"\"\"",
-                "    ",
+                "",
                 "    Raises:",
                 "        ValueError: DESCRIPTION.",
                 "        TypeError: DESCRIPTION.",
-                "    ",
+                "",
                 "    Yields:",
                 "        None.",
+                "",
                 "    \"\"\"",
                 "    raise",
                 "    raise ValueError",
@@ -134,12 +166,14 @@ describe("py-autodoc end-to-end tests", function()
             expected_lines = {
                 "def foo(arg1: int, arg2: str) -> int:",
                 "    \"\"\"",
+                "",
                 "    Args:",
                 "        arg1: DESCRIPTION.",
                 "        arg2: DESCRIPTION.",
-                "    ",
+                "",
                 "    Returns:",
                 "        DESCRIPTION.",
+                "",
                 "    \"\"\"",
                 "    return arg1",
             },
@@ -151,9 +185,10 @@ describe("py-autodoc end-to-end tests", function()
             expected_lines = {
                 "  def foo():",
                 "      \"\"\"",
-                "      ",
+                "",
                 "      Returns:",
                 "          None.",
+                "",
                 "      \"\"\"",
                 "      ",
             },
@@ -169,6 +204,7 @@ describe("py-autodoc end-to-end tests", function()
                 "    arg3='-> (float, int):', arg4=':float, int[', arg5: str='\"\"') ->",
                 "  (List[Tuple[str, float]], str, float):",
                 "    \"\"\"",
+                "",
                 "    Args:",
                 "        arg (TYPE): DESCRIPTION.",
                 "        arg0 (TYPE): DESCRIPTION.",
@@ -177,9 +213,10 @@ describe("py-autodoc end-to-end tests", function()
                 "        arg3 (TYPE): DESCRIPTION. Defaults to '-> (float, int):'.",
                 "        arg4 (TYPE): DESCRIPTION. Defaults to ':float, int['.",
                 "        arg5 (str): DESCRIPTION. Defaults to '\"\"'.",
-                "    ",
+                "",
                 "    Returns:",
                 "        (List[Tuple[str, float]], str, float): DESCRIPTION.",
+                "",
                 "    \"\"\"",
             },
         },
@@ -197,12 +234,14 @@ describe("py-autodoc end-to-end tests", function()
                 "        b: ndarray",
                 ") -> ndarray:",
                 "    \"\"\"",
+                "",
                 "    Args:",
                 "        a (ndarray): DESCRIPTION.",
                 "        b (ndarray): DESCRIPTION.",
-                "    ",
+                "",
                 "    Returns:",
                 "        ndarray: DESCRIPTION.",
+                "",
                 "    \"\"\"",
                 "    pass",
             },
@@ -222,12 +261,14 @@ describe("py-autodoc end-to-end tests", function()
                 "        b: ndarray",
                 ") -> ndarray:",
                 "    \"\"\"",
+                "",
                 "    Args:",
                 "        a (ndarray): DESCRIPTION.",
                 "        b (ndarray): DESCRIPTION.",
-                "    ",
+                "",
                 "    Returns:",
                 "        ndarray: DESCRIPTION.",
+                "",
                 "    \"\"\"",
                 "    pass",
             },
@@ -243,11 +284,13 @@ def foo(arg1: int) -> int:
                 "@decorator",
                 "def foo(arg1: int) -> int:",
                 "    \"\"\"",
+                "",
                 "    Args:",
                 "        arg1 (int): DESCRIPTION.",
-                "    ",
+                "",
                 "    Returns:",
                 "        int: DESCRIPTION.",
+                "",
                 "    \"\"\"",
                 "    return arg1",
             },
@@ -265,11 +308,13 @@ def foo(arg1: int) -> int:
                 "@decorator_two",
                 "def foo(arg1: int) -> int:",
                 "    \"\"\"",
+                "",
                 "    Args:",
                 "        arg1 (int): DESCRIPTION.",
-                "    ",
+                "",
                 "    Returns:",
                 "        int: DESCRIPTION.",
+                "",
                 "    \"\"\"",
                 "    return arg1",
             },
@@ -289,11 +334,13 @@ def foo(arg1: int) -> int:
                 ")",
                 "def foo(arg1: int) -> int:",
                 "    \"\"\"",
+                "",
                 "    Args:",
                 "        arg1 (int): DESCRIPTION.",
-                "    ",
+                "",
                 "    Returns:",
                 "        int: DESCRIPTION.",
+                "",
                 "    \"\"\"",
                 "    return arg1",
             },
@@ -314,12 +361,13 @@ def foo(arg1: int) -> int:
             expected_lines = {
                 "  def foo():",
                 "      \"\"\"",
-                "      ",
+                "",
                 "      Raises:",
                 "          ValueError: DESCRIPTION.",
-                "      ",
+                "",
                 "      Yields:",
                 "          None.",
+                "",
                 "      \"\"\"",
                 "      raise",
                 "      foo_raise()",
@@ -342,9 +390,10 @@ def foo(arg1: int) -> int:
             expected_lines = {
                 "def foo():",
                 "    \"\"\"",
-                "    ",
+                "",
                 "    Returns:",
                 "        None.",
+                "",
                 "    \"\"\"",
                 "    return None",
                 "    return \"f, b\", v1, v2, 3.0, .7, (,), {}, [ab], f(a), None, a.b, a+b, True",
@@ -359,9 +408,10 @@ def foo(arg1: int) -> int:
             expected_lines = {
                 "def foo():",
                 "    \"\"\"",
-                "    ",
+                "",
                 "    Returns:",
                 "        None.",
+                "",
                 "    \"\"\"",
                 "    return no, (ano, eo, dken)",
             },
@@ -372,7 +422,7 @@ def foo(arg1: int) -> int:
         it("Googledoc " .. case.description, function()
             local result, err = run_e2e_test(case.input, "Googledoc", case.cursor_line, case.generator_opts)
             assert.is_nil(err)
-            local result_lines = vim.split(result, "\n")
+            local result_lines = vim.split(result, "\n", { plain = true, trimempty = false })
             assert.are.same(case.expected_lines, result_lines)
         end)
     end
@@ -387,17 +437,19 @@ def foo(arg1: int) -> int:
             expected_lines = {
                 "def foo(arg1: int, arg2: str) -> int:",
                 "    \"\"\"",
+                "",
                 "    Parameters",
                 "    ----------",
                 "    arg1 : int",
                 "        DESCRIPTION.",
                 "    arg2 : str",
                 "        DESCRIPTION.",
-                "    ",
+                "",
                 "    Returns",
                 "    -------",
                 "    int",
                 "        DESCRIPTION.",
+                "",
                 "    \"\"\"",
                 "    return arg1",
             },
@@ -411,16 +463,18 @@ def foo(arg1: int) -> int:
             expected_lines = {
                 "def foo(arg1: int, arg2: str) -> int:",
                 "    \"\"\"",
+                "",
                 "    Parameters",
                 "    ----------",
                 "    arg1",
                 "        DESCRIPTION.",
                 "    arg2",
                 "        DESCRIPTION.",
-                "    ",
+                "",
                 "    Returns",
                 "    -------",
                 "        DESCRIPTION.",
+                "",
                 "    \"\"\"",
                 "    return arg1",
             },
@@ -431,7 +485,7 @@ def foo(arg1: int) -> int:
         it("Numpydoc " .. case.description, function()
             local result, err = run_e2e_test(case.input, "Numpydoc", case.cursor_line, case.generator_opts)
             assert.is_nil(err)
-            local result_lines = vim.split(result, "\n")
+            local result_lines = vim.split(result, "\n", { plain = true, trimempty = false })
             assert.are.same(case.expected_lines, result_lines)
         end)
     end
@@ -446,13 +500,15 @@ def foo(arg1: int) -> int:
             expected_lines = {
                 "def foo(arg1: int, arg2: str) -> int:",
                 "    \"\"\"",
+                "",
                 "    :param arg1: DESCRIPTION.",
                 "    :type arg1: int",
                 "    :param arg2: DESCRIPTION.",
                 "    :type arg2: str",
-                "    ",
+                "",
                 "    :returns: DESCRIPTION.",
                 "    :rtype: int",
+                "",
                 "    \"\"\"",
                 "    return arg1",
             },
@@ -466,10 +522,12 @@ def foo(arg1: int) -> int:
             expected_lines = {
                 "def foo(arg1: int, arg2: str) -> int:",
                 "    \"\"\"",
+                "",
                 "    :param arg1: DESCRIPTION.",
                 "    :param arg2: DESCRIPTION.",
-                "    ",
+                "",
                 "    :returns: DESCRIPTION.",
+                "",
                 "    \"\"\"",
                 "    return arg1",
             },
@@ -480,7 +538,7 @@ def foo(arg1: int) -> int:
         it("Sphinxdoc " .. case.description, function()
             local result, err = run_e2e_test(case.input, "Sphinxdoc", case.cursor_line, case.generator_opts)
             assert.is_nil(err)
-            local result_lines = vim.split(result, "\n")
+            local result_lines = vim.split(result, "\n", { plain = true, trimempty = false })
             assert.are.same(case.expected_lines, result_lines)
         end)
     end

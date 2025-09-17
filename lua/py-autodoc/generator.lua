@@ -48,6 +48,7 @@ function M.generate_googledoc(func_info, body_info, include_type_hints)
     local doc_args = get_args_for_doc(func_info.args)
 
     if #doc_args > 0 then
+        table.insert(lines, "")
         table.insert(lines, "Args:")
         for _, arg in ipairs(doc_args) do
             local arg_display
@@ -102,6 +103,7 @@ function M.generate_numpydoc(func_info, body_info, include_type_hints)
     local doc_args = get_args_for_doc(func_info.args)
 
     if #doc_args > 0 then
+        table.insert(lines, "")
         table.insert(lines, "Parameters")
         table.insert(lines, "----------")
         for _, arg in ipairs(doc_args) do
@@ -150,20 +152,20 @@ function M.generate_sphinxdoc(func_info, body_info, include_type_hints)
     table.insert(lines, "")
 
     local doc_args = get_args_for_doc(func_info.args)
-    for _, arg in ipairs(doc_args) do
-        local description = ":param " .. arg.name .. ": DESCRIPTION."
-        if arg.default_value then
-            description = description .. " Defaults to " .. arg.default_value .. "."
-        end
-        table.insert(lines, description)
-
-        if include_type_hints then
-            local arg_type = arg.arg_type or "TYPE"
-            table.insert(lines, string.format(":type %s: %s", arg.name, arg_type))
-        end
-    end
-
     if #doc_args > 0 then
+        table.insert(lines, "")
+        for _, arg in ipairs(doc_args) do
+            local description = ":param " .. arg.name .. ": DESCRIPTION."
+            if arg.default_value then
+                description = description .. " Defaults to " .. arg.default_value .. "."
+            end
+            table.insert(lines, description)
+
+            if include_type_hints then
+                local arg_type = arg.arg_type or "TYPE"
+                table.insert(lines, string.format(":type %s: %s", arg.name, arg_type))
+            end
+        end
         table.insert(lines, "")
     end
 
@@ -182,6 +184,10 @@ function M.generate_sphinxdoc(func_info, body_info, include_type_hints)
     else
         returns_directive = ":returns:"
         rtype_directive = ":rtype:"
+    end
+
+    if lines[#lines] ~= "" then
+        table.insert(lines, "")
     end
 
     table.insert(lines, returns_directive .. " DESCRIPTION.")
@@ -223,10 +229,14 @@ function M.generate(doc_style, func_info, body_info, indent, indent_chars, opts)
     -- Add the indented body of the docstring
     for _, line in ipairs(unindented_lines) do
         if line == "" then
-            table.insert(final_lines, indent1) -- Keep blank lines, but indented
+            table.insert(final_lines, "")
         else
             table.insert(final_lines, indent1 .. line)
         end
+    end
+
+    if final_lines[#final_lines] ~= "" then
+        table.insert(final_lines, "")
     end
 
     -- Add closing quotes
