@@ -146,6 +146,60 @@ function M.generate_numpydoc(func_info, body_info, include_type_hints)
     return lines
 end
 
+function M.generate_sphinxdoc(func_info, body_info, include_type_hints)
+    local lines = {}
+
+    table.insert(lines, "Summary of the function.")
+    table.insert(lines, "")
+
+    local doc_args = get_args_for_doc(func_info.args)
+    for _, arg in ipairs(doc_args) do
+        local description = ":param " .. arg.name .. ": DESCRIPTION."
+        if arg.default_value then
+            description = description .. " Defaults to " .. arg.default_value .. "."
+        end
+        table.insert(lines, description)
+
+        if include_type_hints then
+            local arg_type = arg.arg_type or "TYPE"
+            table.insert(lines, string.format(":type %s: %s", arg.name, arg_type))
+        end
+    end
+
+    if #doc_args > 0 then
+        table.insert(lines, "")
+    end
+
+    if body_info and #body_info.raises > 0 then
+        for _, exception in ipairs(body_info.raises) do
+            table.insert(lines, string.format(":raises %s: DESCRIPTION.", exception))
+        end
+        table.insert(lines, "")
+    end
+
+    local returns_directive
+    local rtype_directive
+    if body_info and body_info.has_yield then
+        returns_directive = ":yields:"
+        rtype_directive = ":yield type:"
+    else
+        returns_directive = ":returns:"
+        rtype_directive = ":rtype:"
+    end
+
+    table.insert(lines, returns_directive .. " DESCRIPTION.")
+
+    if include_type_hints then
+        local return_type = func_info.return_type
+        if not return_type then
+            return_type = (body_info and body_info.has_yield) and "TYPE" or "None"
+        end
+        table.insert(lines, string.format("%s %s", rtype_directive, return_type))
+    end
+
+    return lines
+end
+
 --- Generates a docstring based on the specified style.
 function M.generate(doc_style, func_info, body_info, indent, indent_chars, opts)
     opts = opts or {}

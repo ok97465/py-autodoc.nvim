@@ -451,4 +451,55 @@ def foo(arg1: int) -> int:
         end)
     end
 
+    local sphinxdoc_cases = {
+        {
+            description = "includes type hints by default",
+            input = [=[def foo(arg1: int, arg2: str) -> int:
+    return arg1
+]=],
+            generator_opts = { include_type_hints = true },
+            expected_lines = {
+                "def foo(arg1: int, arg2: str) -> int:",
+                "    \"\"\"Summary of the function.",
+                "    ",
+                "    :param arg1: DESCRIPTION.",
+                "    :type arg1: int",
+                "    :param arg2: DESCRIPTION.",
+                "    :type arg2: str",
+                "    ",
+                "    :returns: DESCRIPTION.",
+                "    :rtype: int",
+                "    \"\"\"",
+                "    return arg1",
+            },
+        },
+        {
+            description = "omits type hints when disabled",
+            input = [=[def foo(arg1: int, arg2: str) -> int:
+    return arg1
+]=],
+            generator_opts = { include_type_hints = false },
+            expected_lines = {
+                "def foo(arg1: int, arg2: str) -> int:",
+                "    \"\"\"Summary of the function.",
+                "    ",
+                "    :param arg1: DESCRIPTION.",
+                "    :param arg2: DESCRIPTION.",
+                "    ",
+                "    :returns: DESCRIPTION.",
+                "    \"\"\"",
+                "    return arg1",
+            },
+        },
+    }
+
+    for _, case in ipairs(sphinxdoc_cases) do
+        it("Sphinxdoc " .. case.description, function()
+            local result, err = run_e2e_test(case.input, "Sphinxdoc", case.cursor_line, case.generator_opts)
+            assert.is_nil(err)
+            local result_lines = vim.split(result, "\n")
+            assert.are.same(case.expected_lines, result_lines)
+        end)
+    end
+
 end)
