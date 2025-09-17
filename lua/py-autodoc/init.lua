@@ -86,7 +86,7 @@ function M.generate_docstring()
     local insert_line_num = function_start_line + num_lines - 1
     vim.api.nvim_buf_set_lines(buf, insert_line_num, insert_line_num, false, docstring_lines)
 
-    -- 7. Move cursor to the summary line for immediate editing
+    -- 7. Move cursor to the opening quotes so the user can type the summary immediately
     local cursor_target_line = insert_line_num + 1
     local cursor_target_col = #func_indent + #M.config.indent_chars + 3 -- +3 for the '"""'
     vim.api.nvim_win_set_cursor(0, {cursor_target_line, cursor_target_col})

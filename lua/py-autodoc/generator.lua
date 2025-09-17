@@ -41,9 +41,8 @@ end
 
 function M.generate_googledoc(func_info, body_info, include_type_hints)
     local lines = {}
-    local indent2 = "    " -- Relative indentation
+    local indent2 = "    " -- Relative indentation used inside the docstring body
 
-    table.insert(lines, "Summary of the function.")
     table.insert(lines, "")
 
     local doc_args = get_args_for_doc(func_info.args)
@@ -64,7 +63,7 @@ function M.generate_googledoc(func_info, body_info, include_type_hints)
             if arg.default_value then
                 line = line .. " Defaults to " .. arg.default_value .. "."
             end
-            table.insert(lines, line)
+            table.insert(lines, indent2 .. line)
         end
     end
 
@@ -98,7 +97,6 @@ function M.generate_numpydoc(func_info, body_info, include_type_hints)
     local lines = {}
     local indent_desc = "    "
 
-    table.insert(lines, "Summary of the function.")
     table.insert(lines, "")
 
     local doc_args = get_args_for_doc(func_info.args)
@@ -149,7 +147,6 @@ end
 function M.generate_sphinxdoc(func_info, body_info, include_type_hints)
     local lines = {}
 
-    table.insert(lines, "Summary of the function.")
     table.insert(lines, "")
 
     local doc_args = get_args_for_doc(func_info.args)
@@ -219,7 +216,7 @@ function M.generate(doc_style, func_info, body_info, indent, indent_chars, opts)
     local indent1 = indent .. indent_chars
     local final_lines = {}
 
-    -- Get the first line (summary) and combine with opening quotes
+    -- Get the first line (placeholder for the user summary) and combine with opening quotes
     local first_unindented_line = table.remove(unindented_lines, 1) or ""
     table.insert(final_lines, indent1 .. '"""' .. first_unindented_line)
 
