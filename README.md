@@ -17,8 +17,6 @@
 
 ### Prerequisites
 - Neovim (version 0.7 or higher recommended)
-- Python 3
-- `pynvim` Python package: `pip install pynvim`
 
 ### Using `lazy.nvim`
 
