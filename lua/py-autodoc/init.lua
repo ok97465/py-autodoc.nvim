@@ -13,6 +13,7 @@ local default_config = {
   doc_style = "Googledoc", -- "Numpydoc", "Googledoc", "Sphinxdoc"
   indent_chars = "    ",
   include_type_hints = true,
+  snippet_tab_jump = false,
 }
 
 M.config = {}
@@ -100,12 +101,81 @@ local function build_docstring(context)
     )
 end
 
+--- Converts snippet placeholders into plain text defaults for fallback insertion.
+--- @param snippet string
+--- @return string
+local function snippet_to_text(snippet)
+    local text = snippet:gsub("%${%d+:([^}]+)}", "%1")
+    text = text:gsub("%${%d+}", "")
+    return text
+end
+
+local snippet_keymaps_initialized = false
+
+local function disable_snippet_keymaps()
+    if not snippet_keymaps_initialized then
+        return
+    end
+    if not (vim.keymap and vim.keymap.del) then
+        snippet_keymaps_initialized = false
+        return
+    end
+    pcall(vim.keymap.del, { "i", "s" }, "<Tab>")
+    pcall(vim.keymap.del, { "i", "s" }, "<S-Tab>")
+    snippet_keymaps_initialized = false
+end
+
+local function ensure_snippet_keymaps()
+    if snippet_keymaps_initialized or not M.config.snippet_tab_jump then
+        return
+    end
+    if not (vim.keymap and vim.keymap.set) then
+        return
+    end
+
+    local function jump_mapping(direction, fallback)
+        if vim.snippet and vim.snippet.active and vim.snippet.jump then
+            local ok_active, can_jump = pcall(vim.snippet.active, { direction = direction })
+            if ok_active and can_jump then
+                return string.format("<Cmd>lua vim.snippet.jump(%d)<CR>", direction)
+            end
+        end
+        return fallback
+    end
+
+    vim.keymap.set({ "i", "s" }, "<Tab>", function()
+        return jump_mapping(1, "<Tab>")
+    end, { expr = true, silent = true, desc = "py-autodoc: jump to next snippet placeholder" })
+
+    vim.keymap.set({ "i", "s" }, "<S-Tab>", function()
+        return jump_mapping(-1, "<S-Tab>")
+    end, { expr = true, silent = true, desc = "py-autodoc: jump to previous snippet placeholder" })
+
+    snippet_keymaps_initialized = true
+end
+
 --- Inserts generated docstring lines into the current buffer.
 --- @param buf integer
 --- @param insert_line integer 1-based index of the line after the signature
---- @param docstring_lines string[]
-local function insert_docstring(buf, insert_line, docstring_lines)
-    vim.api.nvim_buf_set_lines(buf, insert_line, insert_line, false, docstring_lines)
+--- @param snippet_body string
+--- @param fallback_lines string[]
+--- @return boolean used_snippet
+local function insert_docstring(buf, insert_line, snippet_body, fallback_lines)
+    if vim.snippet and vim.snippet.expand then
+        ensure_snippet_keymaps()
+        vim.api.nvim_buf_set_lines(buf, insert_line, insert_line, false, { "" })
+        vim.api.nvim_win_set_cursor(0, { insert_line + 1, 0 })
+
+        local ok = pcall(vim.snippet.expand, snippet_body)
+        if ok then
+            return true
+        end
+
+        vim.api.nvim_buf_set_lines(buf, insert_line, insert_line + 1, false, {})
+    end
+
+    vim.api.nvim_buf_set_lines(buf, insert_line, insert_line, false, fallback_lines)
+    return false
 end
 
 --- Positions the cursor on the summary line of the generated docstring.
@@ -121,6 +191,12 @@ end
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", {}, default_config, opts or {})
   configured = true
+
+  if M.config.snippet_tab_jump then
+      ensure_snippet_keymaps()
+  else
+      disable_snippet_keymaps()
+  end
 end
 
 --- Returns whether the plugin has been configured by the user.
@@ -142,11 +218,20 @@ function M.generate_docstring()
     end
 
     local docstring_body = build_docstring(context)
-    local docstring_lines = vim.split(docstring_body, "\n")
+    local fallback_body = snippet_to_text(docstring_body)
+    local fallback_lines = vim.split(fallback_body, "\n")
 
     local insert_line = function_start + context.definition_line_count - 1
-    insert_docstring(snapshot.buf, insert_line, docstring_lines)
-    position_cursor(insert_line, context.indent)
+    local used_snippet = insert_docstring(snapshot.buf, insert_line, docstring_body, fallback_lines)
+    if used_snippet then
+        vim.schedule(function()
+            if vim.api.nvim_get_current_buf() == snapshot.buf then
+                vim.cmd.startinsert()
+            end
+        end)
+    else
+        position_cursor(insert_line, context.indent)
+    end
 
     vim.notify("py-autodoc: Docstring generated.", vim.log.levels.INFO)
 end

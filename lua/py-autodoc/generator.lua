@@ -2,6 +2,12 @@
 
 local M = {}
 
+local function next_placeholder(state, default_text)
+    state.index = state.index + 1
+    local text = default_text or ""
+    return string.format("${%d:%s}", state.index, text)
+end
+
 local function get_args_for_doc(func_args)
     -- Create a copy to avoid modifying the original table
     local args_copy = {}
@@ -15,7 +21,7 @@ local function get_args_for_doc(func_args)
     return args_copy
 end
 
-local function format_argument_for_numpydoc(arg, include_type_hints)
+local function format_argument_for_numpydoc(arg, include_type_hints, placeholder_state)
     local indent_desc = "    "
     local arg_type = arg.arg_type or "TYPE"
     local header
@@ -31,7 +37,7 @@ local function format_argument_for_numpydoc(arg, include_type_hints)
         end
     end
 
-    local description = indent_desc .. "DESCRIPTION."
+    local description = indent_desc .. next_placeholder(placeholder_state, "DESCRIPTION.")
     if arg.default_value then
         description = description .. " Defaults to " .. arg.default_value .. "."
     end
@@ -39,11 +45,11 @@ local function format_argument_for_numpydoc(arg, include_type_hints)
     return header, description
 end
 
-function M.generate_googledoc(func_info, body_info, include_type_hints)
+function M.generate_googledoc(func_info, body_info, include_type_hints, placeholder_state)
     local lines = {}
     local indent2 = "    " -- Relative indentation used inside the docstring body
 
-    table.insert(lines, "")
+    table.insert(lines, next_placeholder(placeholder_state, "Summary."))
 
     local doc_args = get_args_for_doc(func_info.args)
 
@@ -60,7 +66,7 @@ function M.generate_googledoc(func_info, body_info, include_type_hints)
                 arg_display = arg.name
             end
 
-            local line = ("%s: DESCRIPTION."):format(arg_display)
+            local line = ("%s: %s"):format(arg_display, next_placeholder(placeholder_state, "DESCRIPTION."))
             if arg.default_value then
                 line = line .. " Defaults to " .. arg.default_value .. "."
             end
@@ -72,7 +78,7 @@ function M.generate_googledoc(func_info, body_info, include_type_hints)
         table.insert(lines, "")
         table.insert(lines, "Raises:")
         for _, exception in ipairs(body_info.raises) do
-            table.insert(lines, indent2 .. exception .. ": DESCRIPTION.")
+            table.insert(lines, indent2 .. exception .. ": " .. next_placeholder(placeholder_state, "DESCRIPTION."))
         end
     end
 
@@ -84,9 +90,9 @@ function M.generate_googledoc(func_info, body_info, include_type_hints)
     end
 
     if func_info.return_type and include_type_hints then
-        table.insert(lines, indent2 .. func_info.return_type .. ": DESCRIPTION.")
+        table.insert(lines, indent2 .. func_info.return_type .. ": " .. next_placeholder(placeholder_state, "DESCRIPTION."))
     elseif func_info.return_type then
-        table.insert(lines, indent2 .. "DESCRIPTION.")
+        table.insert(lines, indent2 .. next_placeholder(placeholder_state, "DESCRIPTION."))
     else
         table.insert(lines, indent2 .. "None.")
     end
@@ -94,11 +100,11 @@ function M.generate_googledoc(func_info, body_info, include_type_hints)
     return lines
 end
 
-function M.generate_numpydoc(func_info, body_info, include_type_hints)
+function M.generate_numpydoc(func_info, body_info, include_type_hints, placeholder_state)
     local lines = {}
     local indent_desc = "    "
 
-    table.insert(lines, "")
+    table.insert(lines, next_placeholder(placeholder_state, "Summary."))
 
     local doc_args = get_args_for_doc(func_info.args)
 
@@ -107,7 +113,7 @@ function M.generate_numpydoc(func_info, body_info, include_type_hints)
         table.insert(lines, "Parameters")
         table.insert(lines, "----------")
         for _, arg in ipairs(doc_args) do
-            local header, description = format_argument_for_numpydoc(arg, include_type_hints)
+            local header, description = format_argument_for_numpydoc(arg, include_type_hints, placeholder_state)
             table.insert(lines, header)
             table.insert(lines, description)
         end
@@ -119,7 +125,7 @@ function M.generate_numpydoc(func_info, body_info, include_type_hints)
         table.insert(lines, "------")
         for _, exception in ipairs(body_info.raises) do
             table.insert(lines, exception)
-            table.insert(lines, indent_desc .. "DESCRIPTION.")
+            table.insert(lines, indent_desc .. next_placeholder(placeholder_state, "DESCRIPTION."))
         end
     end
 
@@ -138,24 +144,24 @@ function M.generate_numpydoc(func_info, body_info, include_type_hints)
             end
         end
         table.insert(lines, return_type)
-        table.insert(lines, indent_desc .. "DESCRIPTION.")
+        table.insert(lines, indent_desc .. next_placeholder(placeholder_state, "DESCRIPTION."))
     else
-        table.insert(lines, indent_desc .. "DESCRIPTION.")
+        table.insert(lines, indent_desc .. next_placeholder(placeholder_state, "DESCRIPTION."))
     end
 
     return lines
 end
 
-function M.generate_sphinxdoc(func_info, body_info, include_type_hints)
+function M.generate_sphinxdoc(func_info, body_info, include_type_hints, placeholder_state)
     local lines = {}
 
-    table.insert(lines, "")
+    table.insert(lines, next_placeholder(placeholder_state, "Summary."))
 
     local doc_args = get_args_for_doc(func_info.args)
     if #doc_args > 0 then
         table.insert(lines, "")
         for _, arg in ipairs(doc_args) do
-            local description = ":param " .. arg.name .. ": DESCRIPTION."
+            local description = ":param " .. arg.name .. ": " .. next_placeholder(placeholder_state, "DESCRIPTION.")
             if arg.default_value then
                 description = description .. " Defaults to " .. arg.default_value .. "."
             end
@@ -171,7 +177,7 @@ function M.generate_sphinxdoc(func_info, body_info, include_type_hints)
 
     if body_info and #body_info.raises > 0 then
         for _, exception in ipairs(body_info.raises) do
-            table.insert(lines, string.format(":raises %s: DESCRIPTION.", exception))
+            table.insert(lines, string.format(":raises %s: %s", exception, next_placeholder(placeholder_state, "DESCRIPTION.")))
         end
         table.insert(lines, "")
     end
@@ -190,7 +196,13 @@ function M.generate_sphinxdoc(func_info, body_info, include_type_hints)
         table.insert(lines, "")
     end
 
-    table.insert(lines, returns_directive .. " DESCRIPTION.")
+    if body_info and body_info.has_yield then
+        table.insert(lines, returns_directive .. " " .. next_placeholder(placeholder_state, "DESCRIPTION."))
+    elseif func_info.return_type then
+        table.insert(lines, returns_directive .. " " .. next_placeholder(placeholder_state, "DESCRIPTION."))
+    else
+        table.insert(lines, returns_directive .. " " .. next_placeholder(placeholder_state, "None."))
+    end
 
     if include_type_hints then
         local return_type = func_info.return_type
@@ -217,7 +229,8 @@ function M.generate(doc_style, func_info, body_info, indent, indent_chars, opts)
     end
 
     -- Get the unindented lines from the style-specific generator
-    local unindented_lines = generator(func_info, body_info, include_type_hints)
+    local placeholder_state = { index = 0 }
+    local unindented_lines = generator(func_info, body_info, include_type_hints, placeholder_state)
 
     local indent1 = indent .. indent_chars
     local final_lines = {}

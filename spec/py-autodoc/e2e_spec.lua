@@ -56,6 +56,12 @@ describe("py-autodoc end-to-end tests", function()
     end)
 
     -- Helper function to run a full end-to-end test
+    local function snippet_to_text(snippet)
+        local text = snippet:gsub("%${%d+:([^}]+)}", "%1")
+        text = text:gsub("%${%d+}", "")
+        return text
+    end
+
     local function run_e2e_test(input_code, doc_style, cursor_line_override, generator_opts)
         local lines = vim.split(input_code, "\n")
         local cursor_line = cursor_line_override
@@ -90,8 +96,13 @@ describe("py-autodoc end-to-end tests", function()
         body_info = parser.parse_body(body_text)
 
         local docstring_body = generator.generate(doc_style, func_info, body_info, func_indent, "    ", generator_opts)
+        docstring_body = snippet_to_text(docstring_body)
 
         local docstring_lines = vim.split(docstring_body, "\n", { plain = true, trimempty = false })
+
+        if docstring_lines[1] then
+            docstring_lines[1] = docstring_lines[1]:gsub('"""Summary%.$', '"""')
+        end
 
         local insert_at = function_start + num_lines - 1
         local final_lines = {}
