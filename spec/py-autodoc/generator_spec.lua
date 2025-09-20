@@ -28,6 +28,7 @@ describe("py-autodoc.generator snippet placeholders", function()
         assert.is_not_nil(docstring:match('arg2 %(str%): %${%d+:DESCRIPTION%.}'))
         assert.is_not_nil(docstring:match('ValueError: %${%d+:DESCRIPTION%.}'))
         assert.is_not_nil(docstring:match('bool: %${%d+:DESCRIPTION%.}'))
+        assert.is_not_nil(docstring:match('\n%s*%${0}$'))
     end)
 
     it("falls back to literal None for return-less Googledoc output", function()

@@ -252,8 +252,9 @@ function M.generate(doc_style, func_info, body_info, indent, indent_chars, opts)
         table.insert(final_lines, "")
     end
 
-    -- Add closing quotes
+    -- Add closing quotes and a final tabstop for continuing code editing
     table.insert(final_lines, indent1 .. '"""')
+    table.insert(final_lines, indent1 .. '${0}')
 
     return table.concat(final_lines, "\n")
 end

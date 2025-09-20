@@ -99,6 +99,9 @@ describe("py-autodoc end-to-end tests", function()
         docstring_body = snippet_to_text(docstring_body)
 
         local docstring_lines = vim.split(docstring_body, "\n", { plain = true, trimempty = false })
+        while #docstring_lines > 0 and docstring_lines[#docstring_lines]:match("^%s*$") do
+            table.remove(docstring_lines)
+        end
 
         if docstring_lines[1] then
             docstring_lines[1] = docstring_lines[1]:gsub('"""Summary%.$', '"""')

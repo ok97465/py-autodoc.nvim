@@ -159,15 +159,39 @@ end
 --- @param insert_line integer 1-based index of the line after the signature
 --- @param snippet_body string
 --- @param fallback_lines string[]
+--- @param existing_next_line string|nil
 --- @return boolean used_snippet
-local function insert_docstring(buf, insert_line, snippet_body, fallback_lines)
+local function insert_docstring(buf, insert_line, snippet_body, fallback_lines, existing_next_line)
     if vim.snippet and vim.snippet.expand then
         ensure_snippet_keymaps()
+        local snippet_for_expand = snippet_body
+        local next_line_default
+        if existing_next_line and existing_next_line:match("%S") then
+            local trimmed = existing_next_line:match("^%s*(.*)$") or ""
+            if trimmed ~= "" then
+                next_line_default = trimmed
+                local escaped = next_line_default
+                    :gsub("\\", "\\\\")
+                    :gsub("%$", "\\%$")
+                    :gsub("}", "\\}")
+                escaped = escaped:gsub("%%", "%%%%")
+                snippet_for_expand = snippet_for_expand:gsub("%${0}", string.format("${0:%s}", escaped), 1)
+            end
+        end
+
         vim.api.nvim_buf_set_lines(buf, insert_line, insert_line, false, { "" })
         vim.api.nvim_win_set_cursor(0, { insert_line + 1, 0 })
 
-        local ok = pcall(vim.snippet.expand, snippet_body)
+        local ok = pcall(vim.snippet.expand, snippet_for_expand)
         if ok then
+            if next_line_default then
+                local doc_lines = vim.split(snippet_for_expand, "\n", { plain = true, trimempty = false })
+                local after_index = insert_line + #doc_lines
+                local existing = vim.api.nvim_buf_get_lines(buf, after_index, after_index + 1, false)
+                if existing[1] == existing_next_line then
+                    vim.api.nvim_buf_set_lines(buf, after_index, after_index + 1, false, {})
+                end
+            end
             return true
         end
 
@@ -219,10 +243,15 @@ function M.generate_docstring()
 
     local docstring_body = build_docstring(context)
     local fallback_body = snippet_to_text(docstring_body)
-    local fallback_lines = vim.split(fallback_body, "\n")
+    local fallback_lines = vim.split(fallback_body, "\n", { plain = true, trimempty = false })
+    -- Drop trailing whitespace-only lines so fallback insertion keeps code adjacency intact
+    while #fallback_lines > 0 and fallback_lines[#fallback_lines]:match("^%s*$") do
+        table.remove(fallback_lines)
+    end
 
     local insert_line = function_start + context.definition_line_count - 1
-    local used_snippet = insert_docstring(snapshot.buf, insert_line, docstring_body, fallback_lines)
+    local existing_next_line = snapshot.lines[insert_line + 1]
+    local used_snippet = insert_docstring(snapshot.buf, insert_line, docstring_body, fallback_lines, existing_next_line)
     if used_snippet then
         vim.schedule(function()
             if vim.api.nvim_get_current_buf() == snapshot.buf then
